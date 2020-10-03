@@ -1,0 +1,35 @@
+node
+{
+properties([[$class: 'JiraProjectProperty'], buildDiscarder(logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '5', daysToKeepStr: '', numToKeepStr: '5')), pipelineTriggers([pollSCM('* * * * *')])])
+echo "Build number  is: ${env.BUILD_NUMBER}"
+def mavenHome = tool name : "maven 3.6.3"
+stage('checkoutcode')
+{
+git branch: 'development', credentialsId: 'd3d99b97-0975-40ab-b1c1-730fc933b65c', url: 'https://github.com/susmithapushpala/maven-web-application.git'
+}
+stage('build')
+{
+sh "${mavenHome}/bin/mvn clean package"
+}
+stage('ExecuteSonarQubeReport')
+{
+sh "${mavenHome}/bin/mvn sonar:sonar"
+}
+stage('UploadARtifactIdIntonexus')
+{
+sh "${mavenHome}/bin/mvn deploy"
+}
+stage('DeployApp Into Tomcarserver')
+{
+sshagent(['Tomcatservercredentials'])
+ {
+   sh "scp -o StrictHostKeyChecking=no target/maven-web-application.war ec2-user@13.235.254.141:/opt/tomcat9/webapps/"
+}
+}
+stage('Email Notification')
+{
+mail bcc: 'susmithapushpala@gmail.com', body: '''Build is over......
+Regards
+SusmithaPushpala''', cc: 'susmithapushpala@gmail.com', from: '', replyTo: '', subject: "Build is over...${BUILD_NUMBER}", to: 'susmithapushpala@gmail.com'
+}
+}
